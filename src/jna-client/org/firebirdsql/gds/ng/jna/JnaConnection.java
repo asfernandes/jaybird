@@ -18,20 +18,33 @@
  */
 package org.firebirdsql.gds.ng.jna;
 
-import com.sun.jna.Pointer;
+import static java.util.Objects.requireNonNull;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_cstring;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_end;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_gds;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_interpreted;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_number;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_sql_state;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_string;
+import static org.firebirdsql.gds.ISCConstants.isc_arg_warning;
+
+import java.nio.ByteOrder;
+import java.security.BasicPermission;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+
 import org.firebirdsql.encodings.IEncodingFactory;
-import org.firebirdsql.gds.ng.*;
+import org.firebirdsql.gds.ng.AbstractConnection;
+import org.firebirdsql.gds.ng.DatatypeCoder;
+import org.firebirdsql.gds.ng.FbExceptionBuilder;
+import org.firebirdsql.gds.ng.IAttachProperties;
+import org.firebirdsql.gds.ng.WarningMessageCallback;
 import org.firebirdsql.jna.fbclient.FbClientLibrary;
 import org.firebirdsql.jna.fbclient.ISC_STATUS;
 import org.firebirdsql.logging.Logger;
 import org.firebirdsql.logging.LoggerFactory;
 
-import java.nio.ByteOrder;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-
-import static java.util.Objects.requireNonNull;
-import static org.firebirdsql.gds.ISCConstants.*;
+import com.sun.jna.Pointer;
 
 /**
  * Class handling the initial setup of the JNA connection.
@@ -45,6 +58,16 @@ import static org.firebirdsql.gds.ISCConstants.*;
  */
 public abstract class JnaConnection<T extends IAttachProperties<T>, C extends JnaAttachment>
         extends AbstractConnection<T, C> {
+
+    public static class JnaConnectionPermission extends BasicPermission
+    {
+        private static final long serialVersionUID = 1L;
+
+        public JnaConnectionPermission()
+        {
+            super("JnaConnectionPermission");
+        }
+    }
 
     private static final Logger log = LoggerFactory.getLogger(JnaConnection.class);
     private static final boolean bigEndian = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
@@ -64,6 +87,11 @@ public abstract class JnaConnection<T extends IAttachProperties<T>, C extends Jn
     protected JnaConnection(FbClientLibrary clientLibrary, T attachProperties, IEncodingFactory encodingFactory)
             throws SQLException {
         super(attachProperties, encodingFactory);
+
+        SecurityManager securityManager = System.getSecurityManager();
+        if (securityManager != null)
+            securityManager.checkPermission(new JnaConnectionPermission());
+
         this.clientLibrary = requireNonNull(clientLibrary, "parameter clientLibrary cannot be null");
     }
 
